@@ -55,6 +55,7 @@ void pipeHandler(char *args[]) {
     int leftIn_fd = -1, leftOut_fd = -1, leftError_fd = -1;
     int rightIn_fd = -1, rightOut_fd = -1, rightError_fd = -1;
     int i, foundPipe = -1;
+    pid_t pgid = 0; // Process Group ID
 
     // **Find the pipe symbol ("|").**
     for (i = 0; args[i] != NULL; i++) {
@@ -96,6 +97,8 @@ void pipeHandler(char *args[]) {
         else dup2(leftOut_fd, STDOUT_FILENO); // If file output (`> file`), redirect to it.
         if (leftError_fd != -1) dup2(leftError_fd, STDERR_FILENO);
 
+        setpgid(0, 0);  // Set itself as PGID leader (creates a new process group)
+
         close(pipefd[0]);
         close(pipefd[1]);
 
@@ -103,6 +106,8 @@ void pipeHandler(char *args[]) {
         perror("Left command execution failed");
         exit(1);
     }
+
+    pgid = pid1; // Store PGID from the first process
 
     // **Second process (right command).**
     pid2 = fork();
@@ -116,6 +121,8 @@ void pipeHandler(char *args[]) {
         if (rightOut_fd != -1) dup2(rightOut_fd, STDOUT_FILENO);
         if (rightError_fd != -1) dup2(rightError_fd, STDERR_FILENO);
 
+        setpgid(0, pgid); // Join the process group of the first process
+
         close(pipefd[1]);
         close(pipefd[0]);
 
@@ -123,6 +130,9 @@ void pipeHandler(char *args[]) {
         perror("Right command execution failed");
         exit(1);
     }
+
+    // **Set both processes in the same PGID**
+    setpgid(pid2, pgid); // Ensure second process joins PGID
 
     close(pipefd[0]);
     close(pipefd[1]);

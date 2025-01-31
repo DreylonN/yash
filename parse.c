@@ -12,7 +12,7 @@ int parseInput(const char *prompt, char args[][30], int max_args) {
     }
 
     int count = 0;
-    char prompt_copy[2000]; // Copy input forS tokenization
+    char prompt_copy[2000]; // Copy input for tokenization
     strncpy(prompt_copy, prompt, sizeof(prompt_copy) - 1);
     prompt_copy[sizeof(prompt_copy) - 1] = '\0'; // Ensure null-termination
 
