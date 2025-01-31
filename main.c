@@ -6,60 +6,81 @@
 #include <sys/wait.h>
 #include <readline/readline.h>
 
-int parse_input(const char *input, char args[][30], int max_args);
-void handle_redirection(char *args[], int *stdin_fd, int *stdout_fd, int *stderr_fd);
+int parseInput(const char *input, char args[][30], int maxArgs);
+void redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd);
+void pipeHandler(char *args[]);
+int isValidCommand(char *args[]);
 
 int main() {
     while (1) {
         char *prompt = readline("# ");
         if (prompt == NULL) {
-            exit(0); // Exit the shell on EOF
+            exit(0); // Exit shell on EOF
         }
 
-        const int max_args = 50;
-        char args[max_args][30];
-        int arg_count = parse_input(prompt, args, max_args);
+        const int maxArgs = 50;
+        char args[maxArgs][30];
+        int argCount = parseInput(prompt, args, maxArgs);
 
-        if (arg_count > 0) {
-            // Prepare the argument array for execvp
-            char *argv[max_args + 1];
-            for (int i = 0; i < arg_count; i++) {
+        if (argCount > 0) {
+            char *argv[maxArgs + 1];
+            for (int i = 0; i < argCount; i++) {
                 argv[i] = args[i];
             }
-            argv[arg_count] = NULL;
+            argv[argCount] = NULL;
 
-            int stdin_fd = -1, stdout_fd = -1, stderr_fd = -1;
+            // **Check for Invalid Commands**
+            if (!isValidCommand(argv)) {
+                free(prompt);
+                continue; // Ignore and print new prompt
+            }
 
-            // Handle file redirection
-            redirection(argv, &stdin_fd, &stdout_fd, &stderr_fd);
+            // **Check if command contains a pipe**
+            int containsPipe = 0;
+            for (int i = 0; argv[i] != NULL; i++) {
+                if (strcmp(argv[i], "|") == 0) {
+                    containsPipe = 1;
+                    break;
+                }
+            }
 
-            pid_t pid = fork();
-            if (pid < 0) {
-                perror("Fork failed");
-            } else if (pid == 0) {
-                // Apply redirection if applicable
-                if (stdin_fd != -1) dup2(stdin_fd, STDIN_FILENO);
-                if (stdout_fd != -1) dup2(stdout_fd, STDOUT_FILENO);
-                if (stderr_fd != -1) dup2(stderr_fd, STDERR_FILENO);
+            if (containsPipe) {
+                pipeHandler(argv); // Handle piping with file redirection
+            } else { // Normal execution
+                int in_fd = 0, out_fd = 1, error_fd = 2;
+                redirectionHandler(argv, &in_fd, &out_fd, &error_fd);
 
-                // Execute the command
-                execvp(argv[0], argv);
-                perror("Command execution failed");
-                exit(1);
-            } else {
-                // Wait for the child process
-                int status;
-                waitpid(pid, &status, 0);
+                // DEBUG: Print arguments
+                // for (int i = 0; argv[i] != NULL; i++) {
+                //     printf("argv[%d]: %s\n", i, argv[i]);
+                // }
 
-                // Close redirection file descriptors
-                if (stdin_fd != -1) close(stdin_fd);
-                if (stdout_fd != -1) close(stdout_fd);
-                if (stderr_fd != -1) close(stderr_fd);
+                pid_t pid = fork();
+                if (pid < 0) {
+                    perror("Fork failed");
+                } else if (pid == 0) {
+                    if (in_fd != 0) dup2(in_fd, STDIN_FILENO);
+                    if (out_fd != 1) dup2(out_fd, STDOUT_FILENO);
+                    if (error_fd != 2) dup2(error_fd, STDERR_FILENO);
+
+                    //DEBUG: Prints fds
+                    // printf("Input redirected to file descriptor %d\n", in_fd);
+                    // printf("Output redirected to file descriptor %d\n", out_fd);
+                    // printf("Error redirected to file descriptor %d\n", error_fd);
+
+                    execvp(argv[0], argv);
+                    perror("CommanSd execution failed");
+                    exit(1);
+                } else {
+                    int status;
+                    waitpid(pid, &status, 0);
+                    if (in_fd != 0) close(in_fd);
+                    if (out_fd != 1) close(out_fd);
+                    if (error_fd != 2) close(error_fd);
+                }
             }
         }
-
         free(prompt);
     }
-
     return 0;
 }
