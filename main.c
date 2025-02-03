@@ -6,6 +6,7 @@
 #include <sys/wait.h>
 #include <readline/readline.h>
 #include <signal.h>
+#include "jobs.h"
 
 int parseInput(const char *input, char args[][30], int maxArgs);
 int redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd);
@@ -35,18 +36,16 @@ int main() {
             }
             argv[argCount] = NULL;
 
-            // Checks if fg command is entered and a process is stopped
             if (strcmp(argv[0], "fg") == 0) {
-                if (fg_pgid > 0) {
-                    printf("Resuming process %d\n", fg_pgid);
-                    tcsetpgrp(STDIN_FILENO, fg_pgid);   // Set the foreground process group
-                    kill(-fg_pgid, SIGCONT);  // Resume the stopped process
-                    int status;
-                    while (waitpid(-fg_pgid, &status, WUNTRACED) > 0); // Wait for all pipeline processes
-                    tcsetpgrp(STDIN_FILENO, getpid()); // Restore shell
-                } else {
-                    printf("No process to resume\n");
-                }
+                fgCommand();
+                free(prompt);
+                continue;
+            } else if (strcmp(argv[0], "bg") == 0) {
+                bgCommand();
+                free(prompt);
+                continue;
+            } else if (strcmp(argv[0], "jobs") == 0) {
+                jobsCommand();
                 free(prompt);
                 continue;
             }
@@ -66,6 +65,41 @@ int main() {
                     containsPipe = 1;
                     break;
                 }
+            }
+
+            // Check if last argument is '&' for background execution
+            int isBackground = (strcmp(argv[argCount - 1], "&") == 0);
+
+            // Handle unsupported background piping
+            if (containsPipe && isBackground) {
+                printf("Background piping is not supported.\n");
+                free(prompt);
+                continue;
+            }
+
+            // Handle background execution with file redirection
+            if (isBackground) {
+                argv[argCount - 1] = NULL; // Remove '&' from arguments
+                pid_t pid = fork();
+                if (pid == 0) { // Child process
+                    setpgid(0, 0); // Create a new process group
+                    int in_fd = 0, out_fd = 1, error_fd = 2;
+                    redirectionHandler(argv, &in_fd, &out_fd, &error_fd);
+
+                    if (in_fd != 0) dup2(in_fd, STDIN_FILENO);
+                    if (out_fd != 1) dup2(out_fd, STDOUT_FILENO);
+                    if (error_fd != 2) dup2(error_fd, STDERR_FILENO);
+
+                    execvp(argv[0], argv);
+                    perror("Command execution failed");
+                    exit(1);
+                } else { // Parent process
+                    setpgid(pid, pid);
+                    addJob(pid, "Running", prompt);
+                    printf("[%d] %d\n", jobCount, pid);
+                }
+                free(prompt);
+                continue;
             }
 
             if (containsPipe) {
@@ -112,6 +146,7 @@ int main() {
                     waitpid(pid, &status, WUNTRACED);  // Track if stopped
 
                     if (WIFSTOPPED(status)) {
+                        addJob(pid, "Stopped", prompt);
                         printf("\nProcess stopped. Use 'fg' to resume.\n");
                     }
 
