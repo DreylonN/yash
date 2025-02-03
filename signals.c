@@ -17,7 +17,7 @@ void handle_sigint(int signo) {
 }
 
 void handle_sigtstp(int signo) {
-    printf("fg_pgid: %d", fg_pgid);
+    printf("DEBUGGING: fg_pgid: %d", fg_pgid);
     if (fg_pgid > 0) {
         kill(-fg_pgid, SIGTSTP);  // Suspend the foreground process
     }
