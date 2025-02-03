@@ -8,7 +8,7 @@
 // Returns the number of arguments parsed
 int parseInput(const char *prompt, char args[][30], int max_args) {
     if (prompt == NULL || strlen(prompt) == 0) {
-        return 0; // No valid input
+        return 0; // No valid inputs
     }
 
     int count = 0;
