@@ -147,7 +147,7 @@ int main() {
 
                     if (WIFSTOPPED(status)) {
                         addJob(pid, "Stopped", prompt);
-                        printf("\nDEBUGGING: %s stopped. fg to resume.\n", prompt);
+                        printf("\n[%d]+  Stopped\t\t%s\n", jobCount, prompt);
                     }
 
                     tcsetpgrp(STDIN_FILENO, getpid());  // Restore shell as foreground process

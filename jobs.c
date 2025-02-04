@@ -70,22 +70,41 @@ void removeJob(pid_t pgid) {
     }
 }
 
-void printJobs() {
-    int i = 0;
-    while (i < jobCount) {
-        printf("[%d] %c %s\t%s\n",
-               jobTable[i].jobId,
-               (i == jobCount - 1) ? '+' : '-',
-               jobTable[i].state,
-               jobTable[i].command);
-
-        // Remove "Done" jobs **after** displaying them
+void removeDoneJobs() {
+    int shift = 0;
+    
+    for (int i = 0; i < jobCount; i++) {
         if (strcmp(jobTable[i].state, "Done") == 0) {
-            removeJob(jobTable[i].pgid);
-        } else {
-            i++;  // Only increment if not removed
+            shift++;  // Count how many jobs to remove
+        } else if (shift > 0) {
+            jobTable[i - shift] = jobTable[i];  // Shift jobs up
         }
     }
+    
+    jobCount -= shift;  // Update job count
+}
+
+void printJobs() {
+    // First, print "Done" jobs
+    for (int i = 0; i < jobCount; i++) {
+        if (strcmp(jobTable[i].state, "Done") == 0) {
+            printf("[%d]- Done\t\t%s\n", jobTable[i].jobId, jobTable[i].command);
+        }
+    }
+    
+    // Then, print Running/Stopped jobs
+    for (int i = 0; i < jobCount; i++) {
+        if (strcmp(jobTable[i].state, "Done") != 0) {  // Skip "Done" jobs
+            printf("[%d]%c %s\t\t%s\n",
+                   jobTable[i].jobId,
+                   (i == jobCount - 1) ? '+' : '-',
+                   jobTable[i].state,
+                   jobTable[i].command);
+        }
+    }
+    
+    // Remove "Done" jobs after printing
+    removeDoneJobs();
 }
 
 void fgCommand() {
@@ -93,11 +112,32 @@ void fgCommand() {
         printf("No jobs to resume.\n");
         return;
     }
-    Job *job = &jobTable[jobCount - 1];
-    printf("%s\n", job->command);
+
+    Job *job = NULL;  // Get most recent job
+    for (int i = jobCount - 1; i >= 0; i--) {
+        if (strcmp(jobTable[i].state, "Stopped") == 0 || strcmp(jobTable[i].state, "Running") == 0) {
+            job = &jobTable[i];
+            break;
+        }
+    }
+
+    if (job == NULL) {
+        printf("No jobs to resume.\n"); // Prevents resuming completed jobs
+        return;
+    }
+
+    // Remove '&' from command if it exists
+    char *ampersand = strrchr(job->command, '&');
+    if (ampersand && *(ampersand - 1) == ' ') {
+        *(ampersand - 1) = '\0';  // Trim trailing space before '&'
+    } else if (ampersand) {
+        *ampersand = '\0';  // Remove '&'
+    }
+    
+    printf("%s\n", job->command); // Print the command name
 
     tcsetpgrp(STDIN_FILENO, job->pgid);
-    kill(-job->pgid, SIGCONT);  // Send SIGCONT to the job
+    kill(-job->pgid, SIGCONT);  // Send SIGCONT to resume the job
     updateJobState(job->pgid, "Running");
 
     int status;
@@ -108,13 +148,16 @@ void fgCommand() {
     } else {
         removeJob(job->pgid);  // Remove completed jobs
     }
-    tcsetpgrp(STDIN_FILENO, getpid()); // Restore shell
+    
+    tcsetpgrp(STDIN_FILENO, getpid()); // Restore shell control
 }
+
 
 void bgCommand() {
     for (int i = jobCount - 1; i >= 0; i--) {
         if (strcmp(jobTable[i].state, "Stopped") == 0) {
-            printf("[%d] + %s &\n", jobTable[i].jobId, jobTable[i].command);
+            // Correct background job output format
+            printf("[%d]+ %s &\n", jobTable[i].jobId, jobTable[i].command);
             kill(-jobTable[i].pgid, SIGCONT);  // Resume job
             updateJobState(jobTable[i].pgid, "Running");
             return;
@@ -122,6 +165,7 @@ void bgCommand() {
     }
     printf("No stopped jobs to resume.\n");
 }
+
 
 void jobsCommand() {
     printJobs();

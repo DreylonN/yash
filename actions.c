@@ -18,7 +18,7 @@ int redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd) {
             }
             *in_fd = open(args[i + 1], O_RDONLY); //checks if file exists
             if (*in_fd == -1) {
-                perror("Error opening input file");
+                perror(args[i + 1]);
                 return 1;
             }
             args[i] = NULL; // Remove redirection from args
@@ -30,7 +30,7 @@ int redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd) {
             }
             *out_fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644); //checks if file exists
             if (*out_fd == -1) {
-                perror("Error opening output file");
+                perror(args[i + 1]);
                 return 1;
             }
             args[i] = NULL; // Remove redirection from args
@@ -42,7 +42,7 @@ int redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd) {
             }
             *error_fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644); //checks if file exists
             if (*error_fd == -1) {
-                perror("Error opening error file");
+                perror(args[i + 1]);
                 return 1;
             }
             args[i] = NULL; // Remove redirection from args
@@ -143,8 +143,13 @@ void pipeHandler(char *args[]) {
     close(pipefd[0]);
     close(pipefd[1]);
 
-    waitpid(pid1, NULL, WUNTRACED);
-    waitpid(pid2, NULL, WUNTRACED);
+    int status1, status2;
+    waitpid(pid1, &status1, WUNTRACED);
+    waitpid(pid2, &status2, WUNTRACED);
+
+    if (WIFSTOPPED(status1) || WIFSTOPPED(status2)) {
+        printf("\nDEBUGGING: Pipe process group stopped.\n");
+    }
 
     tcsetpgrp(STDIN_FILENO, getpid()); // Restore shell as foreground process
 }
