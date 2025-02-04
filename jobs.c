@@ -24,30 +24,22 @@ void addJob(pid_t pgid, const char *state, const char *command) {
         fprintf(stderr, "Error: Maximum job limit reached.\n");
         return;
     }
-    jobTable[jobCount].jobId = jobCount + 1;
+
+    // Find the next available job ID
+    int jobId = 1;
+    for (int i = 0; i < jobCount; i++) {
+        if (jobTable[i].jobId >= jobId) {
+            jobId = jobTable[i].jobId + 1;  // Assign the next available ID
+        }
+    }
+
+    jobTable[jobCount].jobId = jobId;
     jobTable[jobCount].pgid = pgid;
     strncpy(jobTable[jobCount].state, state, sizeof(jobTable[jobCount].state) - 1);
     strncpy(jobTable[jobCount].command, command, CMD_LEN - 1);
     jobCount++;
 }
 
-const char *getJobCommand(pid_t pgid) {
-    for (int i = 0; i < jobCount; i++) {
-        if (jobTable[i].pgid == pgid) {
-            return jobTable[i].command;
-        }
-    }
-    return "";  // Return empty string if no job found
-}
-
-int jobExists(pid_t pgid) {
-    for (int i = 0; i < jobCount; i++) {
-        if (jobTable[i].pgid == pgid) {
-            return 1;
-        }
-    }
-    return 0;
-}
 
 void updateJobState(pid_t pgid, const char *state) {
     for (int i = 0; i < jobCount; i++) {

@@ -16,7 +16,7 @@ int redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd) {
                 fprintf(stderr, "Error: Missing file for input redirection\n");
                 return 1;
             }
-            *in_fd = open(args[i + 1], O_RDONLY); //checks if file exists
+            *in_fd = open(args[i + 1], O_RDONLY); // Checks if file exists
             if (*in_fd == -1) {
                 perror(args[i + 1]);
                 return 1;
@@ -28,7 +28,7 @@ int redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd) {
                 fprintf(stderr, "Error: Missing file for output redirection\n");
                 return 1;
             }
-            *out_fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644); //checks if file exists
+            *out_fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644); // Checks if file exists
             if (*out_fd == -1) {
                 perror(args[i + 1]);
                 return 1;
@@ -40,7 +40,7 @@ int redirectionHandler(char *args[], int *in_fd, int *out_fd, int *error_fd) {
                 fprintf(stderr, "Error: Missing file for error redirection\n");
                 return 1;
             }
-            *error_fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644); //checks if file exists
+            *error_fd = open(args[i + 1], O_CREAT | O_WRONLY | O_TRUNC, 0644); // Checks if file exists
             if (*error_fd == -1) {
                 perror(args[i + 1]);
                 return 1;
@@ -113,7 +113,7 @@ void pipeHandler(char *args[]) {
     pgid = pid1; // Store PGID from the first process
     fg_pgid = pgid; // Set the foreground process group to the first process
 
-    // **Second process (right command).**
+    // Second process (right command)
     pid_t pid2 = fork();
     if (pid2 < 0) {
         perror("Fork failed");

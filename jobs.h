@@ -18,10 +18,9 @@ extern Job jobTable[MAX_JOBS]; // Declare job table
 extern int jobCount;           // Declare job count
 
 void addJob(pid_t pgid, const char *state, const char *command);
-const char *getJobCommand(pid_t pgid);
-int jobExists(pid_t pgid);
 void updateJobState(pid_t pgid, const char *state);
 void removeJob(pid_t pgid);
+void removeDoneJobs();
 void printJobs();
 void fgCommand();
 void bgCommand();

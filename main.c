@@ -25,7 +25,7 @@ int main() {
             exit(0); // Exit shell on EOF
         }
 
-        const int maxArgs = 50;
+        const int maxArgs = 100;
         char args[maxArgs][30];
         int argCount = parseInput(prompt, args, maxArgs);
 
@@ -67,19 +67,19 @@ int main() {
                 }
             }
 
-            // Check if last argument is '&' for background execution
+            // Check if last argument is & for background execution
             int isBackground = (strcmp(argv[argCount - 1], "&") == 0);
 
             // Handle unsupported background piping
             if (containsPipe && isBackground) {
-                printf("Background piping is not supported.\n");
+                //printf("Background piping not allowed\n");
                 free(prompt);
                 continue;
             }
 
             // Handle background execution with file redirection
             if (isBackground) {
-                argv[argCount - 1] = NULL; // Remove '&' from arguments
+                argv[argCount - 1] = NULL; // Remove & from arguments
                 pid_t pid = fork();
                 if (pid == 0) { // Child process
                     setpgid(0, 0); // Create a new process group
@@ -135,7 +135,7 @@ int main() {
                     // printf("Error redirected to file descriptor %d\n", error_fd);
 
                     execvp(argv[0], argv);
-                    //perror("Commands execution failed");
+                    perror("Commands execution failed");
                     exit(1);
                 } else {
                     fg_pgid = pid;  // Track foreground process
@@ -147,7 +147,7 @@ int main() {
 
                     if (WIFSTOPPED(status)) {
                         addJob(pid, "Stopped", prompt);
-                        printf("\n[%d]+  Stopped\t\t%s\n", jobCount, prompt);
+                        printf("\n[%d]+  Stopped\t\t%s\n", jobTable[jobCount - 1].jobId, prompt);
                     }
 
                     tcsetpgrp(STDIN_FILENO, getpid());  // Restore shell as foreground process
